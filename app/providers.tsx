@@ -1,6 +1,6 @@
 'use client';
 
-import { FC, ReactNode, useMemo } from 'react';
+import { ReactNode } from 'react';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
@@ -12,15 +12,15 @@ interface ProvidersProps {
   children: ReactNode;
 }
 
-export const Providers: FC<ProvidersProps> = ({ children }) => {
-  const endpoint = useMemo(() => clusterApiUrl('devnet'), []);
-  const wallets = useMemo(() => [
+export function Providers({ children }: ProvidersProps) {
+  const endpoint = clusterApiUrl('devnet');
+  const wallets = [
     new PhantomWalletAdapter(),
     new SolflareWalletAdapter()
-  ], []);
+  ];
 
   return (
-    <ConnectionProvider endpoint={endpoint}>
+    <ConnectionProvider key={endpoint} endpoint={endpoint}>
       <WalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>
           {children}
@@ -28,4 +28,4 @@ export const Providers: FC<ProvidersProps> = ({ children }) => {
       </WalletProvider>
     </ConnectionProvider>
   );
-};
+}
