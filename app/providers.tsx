@@ -12,6 +12,11 @@ interface ProvidersProps {
   children: ReactNode;
 }
 
+// Type assertion workaround for React 18.3+ compatibility
+const ConnectionProviderAny = ConnectionProvider as any;
+const WalletProviderAny = WalletProvider as any;
+const WalletModalProviderAny = WalletModalProvider as any;
+
 export function Providers({ children }: ProvidersProps) {
   const endpoint = clusterApiUrl('devnet');
   const wallets = [
@@ -20,12 +25,12 @@ export function Providers({ children }: ProvidersProps) {
   ];
 
   return (
-    <ConnectionProvider key={endpoint} endpoint={endpoint}>
-      <WalletProvider wallets={wallets} autoConnect>
-        <WalletModalProvider>
+    <ConnectionProviderAny key={endpoint} endpoint={endpoint}>
+      <WalletProviderAny wallets={wallets} autoConnect>
+        <WalletModalProviderAny>
           {children}
-        </WalletModalProvider>
-      </WalletProvider>
-    </ConnectionProvider>
+        </WalletModalProviderAny>
+      </WalletProviderAny>
+    </ConnectionProviderAny>
   );
 }
