@@ -7,9 +7,9 @@ import { useState, useEffect } from 'react';
 import { Raydium, ApiV3PoolInfoStandardItemCpmm, TxVersion } from '@raydium-io/raydium-sdk-v2';
 
 // Configuration
-const LITTER_MINT = new PublicKey('EzGUBzRgyta1Ekyq6eZgJ468f9dvbxd4hvV7g9CQynVZ');
+const LITTER_MINT = new PublicKey(process.env.NEXT_PUBLIC_LITTER_MINT || 'EzGUBzRgyta1Ekyq6eZgJ468f9dvbxd4hvV7g9CQynVZ');
 const SOL_MINT = new PublicKey('So11111111111111111111111111111111111111112');
-const LAUNCH_ID = 'your-launch-id-here'; // Will be filled when you get it from Raydium
+const LAUNCH_ID = process.env.NEXT_PUBLIC_LAUNCH_ID || 'EzGUBzRgyta1Ekyq6eZgJ468f9dvbxd4hvV7g9CQynVZ';
 
 export function SwapUI() {
   const { publicKey, connect, disconnect, signTransaction } = useWallet();
