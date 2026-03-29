@@ -48,10 +48,11 @@ export function SwapUI() {
             mint: new PublicKey(selectedToken.mint),
           });
           if (tokenAccount.value.length > 0) {
-            const info = await connection.getAccountInfo(tokenAccount.value[0].publik);
-            if (info) {
-              // Parse token account data
-              setBalance(0); // Placeholder
+            const tokenInfo = await connection.getTokenAccountBalance(tokenAccount.value[0].pubkey);
+            if (tokenInfo.value) {
+              setBalance(parseFloat(tokenInfo.value.amount));
+            } else {
+              setBalance(0);
             }
           } else {
             setBalance(0);
