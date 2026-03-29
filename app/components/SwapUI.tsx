@@ -25,47 +25,33 @@ export function SwapUI() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [step, setStep] = useState<'idle' | 'swapping' | 'buying' | 'done'>('idle');
-  const [balance, setBalance] = useState<number | null>(null);
+  const [solBalance, setSolBalance] = useState<number | null>(null);
   
   const network = process.env.NEXT_PUBLIC_NETWORK || 'devnet';
   const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || clusterApiUrl(network as any);
   const connection = new Connection(rpcUrl, 'confirmed');
 
-  // Fetch token balance when wallet connects
+  // Fetch SOL balance when wallet connects
   useEffect(() => {
-    if (!publicKey || !selectedToken) {
-      setBalance(null);
+    if (!publicKey) {
+      setSolBalance(null);
       return;
     }
 
     const fetchBalance = async () => {
       try {
-        if (selectedToken.type === 'native') {
-          const bal = await connection.getBalance(publicKey);
-          setBalance(bal / LAMPORTS_PER_SOL);
-        } else {
-          const tokenAccount = await connection.getTokenAccountsByOwner(publicKey, {
-            mint: new PublicKey(selectedToken.mint),
-          });
-          if (tokenAccount.value.length > 0) {
-            const tokenInfo = await connection.getTokenAccountBalance(tokenAccount.value[0].pubkey);
-            if (tokenInfo.value) {
-              setBalance(parseFloat(tokenInfo.value.amount));
-            } else {
-              setBalance(0);
-            }
-          } else {
-            setBalance(0);
-          }
-        }
+        const bal = await connection.getBalance(publicKey);
+        setSolBalance(bal / LAMPORTS_PER_SOL);
       } catch (err) {
         console.error('Balance fetch error:', err);
-        setBalance(null);
+        setSolBalance(null);
       }
     };
 
     fetchBalance();
-  }, [publicKey, selectedToken, connection]);
+  }, [publicKey, connection]);
+  
+  const displayBalance = selectedToken.type === 'native' ? solBalance : null;
 
   const handleSwapAndBuy = async () => {
     if (!publicKey || !signTransaction) {
@@ -183,9 +169,9 @@ export function SwapUI() {
       <div className="mb-6">
         <div className="flex justify-between text-sm text-gray-300 mb-2">
           <label>Amount</label>
-          {balance !== null && (
+          {displayBalance !== null && (
             <span className="text-gray-400">
-              Balance: {balance.toFixed(4)} {selectedToken.symbol}
+              Balance: {displayBalance.toFixed(4)} {selectedToken.symbol}
             </span>
           )}
         </div>
