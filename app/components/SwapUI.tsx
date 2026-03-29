@@ -4,6 +4,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { Connection, PublicKey, clusterApiUrl, LAMPORTS_PER_SOL, VersionedTransaction } from '@solana/web3.js';
 import { useState, useEffect } from 'react';
+import BN from 'bn.js';
 
 // Configuration
 const LITTER_MINT = new PublicKey(process.env.NEXT_PUBLIC_LITTER_MINT || 'EzGUBzRgyta1Ekyq6eZgJ468f9dvbxd4hvV7g9CQynVZ');
@@ -70,7 +71,7 @@ export function SwapUI() {
       // Convert to lamports (assuming 9 decimals for simplicity)
       const amountLamports = Math.floor(amountNum * LAMPORTS_PER_SOL);
 
-      console.log('🔶 Step 1: Swapping', amount, selectedToken.symbol, '→ SOL');
+      console.log('🔶 Step 1: Getting swap quote from Jupiter');
       
       // Use Jupiter API for swap quote
       const quoteResponse = await fetch(
@@ -92,6 +93,7 @@ export function SwapUI() {
           quoteResponse: quote,
           userPublicKey: publicKey.toString(),
           wrapAndTakeToken: false,
+          prioritizationFeeLamports: 'auto',
         }),
       });
       
@@ -101,27 +103,81 @@ export function SwapUI() {
         throw new Error('Failed to get swap transaction');
       }
 
-      console.log('🔶 Step 2: Buying $LITTER via LaunchLab');
+      console.log('🔶 Step 2: Executing swap transaction');
+      
+      // Deserialize and sign swap transaction
+      const swapTx = VersionedTransaction.deserialize(
+        Buffer.from(swapData.swapTransaction, 'base64')
+      );
+      
+      const signedSwapTx = await signTransaction(swapTx);
+      const swapSig = await connection.sendRawTransaction(swapTx.serialize());
+      
+      console.log('Swap signature:', swapSig);
+      await connection.confirmTransaction(swapSig, 'confirmed');
+      console.log('✅ Swap completed!');
+
+      // Step 2: Buy $LITTER via Raydium LaunchLab
+      console.log('🔶 Step 3: Buying $LITTER via Raydium LaunchLab');
       setStep('buying');
 
-      // For LaunchLab, we'd use Raydium SDK here
-      // For demo, we'll simulate the buy
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Import Raydium SDK dynamically
+      const { Raydium, TxVersion } = await import('@raydium-io/raydium-sdk-v2');
+      
+      // Initialize Raydium
+      const raydium = await Raydium.load({
+        owner: publicKey,
+        connection,
+        cluster: 'devnet',
+      });
 
-      console.log('✅ Success!');
+      console.log('Raydium initialized, launching buy...');
+
+      // Execute LaunchLab buy
+      const buyTx = await raydium.launchpad.buy({
+        launchId: LAUNCH_ID,
+        amount: new BN(amountLamports), // Use SOL amount from swap
+        slippage: 0.03, // 3% slippage
+        txVersion: TxVersion.V0,
+      });
+
+      console.log('Buy transaction prepared');
+
+      // Send buy transaction
+      const { txId: buyTxId } = await buyTx({
+        sendAndConfirm: true,
+        onTransaction: (signedTx) => {
+          console.log('Buy transaction sent:', signedTx);
+        },
+      });
+
+      console.log('✅ Buy completed! Transaction:', buyTxId);
+      
       setStep('done');
-      setError('✅ Transaction successful! Check your wallet.');
+      const successMsg = `✅ Success! Swap: ${swapSig.slice(0, 8)}... | Buy: ${buyTxId ? buyTxId.slice(0, 8) + '...' : 'completed'}`;
+      setError(successMsg);
       
     } catch (err: any) {
       console.error('Error:', err);
-      setError(err.message || 'Transaction failed');
+      let errorMsg = err.message || 'Transaction failed';
+      
+      // Provide helpful error messages
+      if (errorMsg.includes('insufficient funds')) {
+        errorMsg = 'Insufficient SOL balance for transaction';
+      } else if (errorMsg.includes('slippage')) {
+        errorMsg = 'Slippage too high - try a smaller amount';
+      } else if (errorMsg.includes('LaunchLab')) {
+        errorMsg = 'LaunchLab purchase failed - ensure token has migrated';
+      }
+      
+      setError(errorMsg);
       setStep('idle');
     } finally {
       setLoading(false);
       setTimeout(() => {
         setStep('idle');
         setAmount('');
-      }, 5000);
+      }, 8000);
     }
   };
 
@@ -135,21 +191,11 @@ export function SwapUI() {
 
   return (
     <div className="max-w-md w-full bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 shadow-2xl">
-      {/* Demo Banner */}
-      <div className="mb-4 p-3 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
-        <p className="text-xs text-yellow-300 text-center font-semibold">
-          ⚠️ Demo Mode - Devnet Only
-        </p>
-        <p className="text-xs text-yellow-400 text-center mt-1">
-          Real swap integration in progress
-        </p>
-      </div>
-
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Swap for $LITTER</h1>
-          <p className="text-sm text-gray-400">Raydium LaunchLab</p>
+          <p className="text-sm text-gray-400">Raydium LaunchLab + Jupiter</p>
         </div>
         <WalletMultiButton />
       </div>
@@ -197,9 +243,9 @@ export function SwapUI() {
       {step !== 'idle' && (
         <div className="mb-4 p-4 bg-white/5 rounded-lg border border-white/10">
           <p className="text-sm text-gray-300">
-            {step === 'swapping' && '🔄 Swapping tokens...'}
-            {step === 'buying' && '🎯 Buying $LITTER...'}
-            {step === 'done' && '✅ Success!'}
+            {step === 'swapping' && '🔄 Swapping tokens via Jupiter...'}
+            {step === 'buying' && '🎯 Buying $LITTER via LaunchLab...'}
+            {step === 'done' && '✅ Success! Check your wallet'}
           </p>
         </div>
       )}
@@ -209,7 +255,7 @@ export function SwapUI() {
         <div className={`mb-4 p-3 rounded-lg ${
           error.includes('✅') ? 'bg-green-500/20 border-green-500/30 text-green-300' : 'bg-red-500/20 border-red-500/30 text-red-300'
         }`}>
-          <p className="text-sm">{error}</p>
+          <p className="text-sm break-all">{error}</p>
         </div>
       )}
 
@@ -219,13 +265,24 @@ export function SwapUI() {
         disabled={loading || !publicKey || !amount}
         className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white font-bold py-4 rounded-lg transition-all text-lg"
       >
-        {loading ? 'Processing...' : 'Swap & Buy $LITTER'}
+        {loading ? (
+          <span className="flex items-center justify-center">
+            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Processing...
+          </span>
+        ) : (
+          `Swap & Buy $LITTER`
+        )}
       </button>
 
       {/* Info */}
       <div className="mt-6 p-4 bg-white/5 rounded-lg border border-white/10 text-center">
         <p className="text-xs text-gray-400">🔁 {selectedToken.symbol} → SOL → $LITTER</p>
         <p className="text-xs text-gray-500 mt-1 font-mono truncate">{LITTER_MINT.toString()}</p>
+        <p className="text-xs text-gray-500 mt-1">Powered by Jupiter + Raydium</p>
       </div>
 
       {!publicKey && (
