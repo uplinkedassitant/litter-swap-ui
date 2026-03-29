@@ -12,4 +12,3 @@ export default function Home() {
     </Providers>
   );
 }
-// Build trigger: Sun Mar 29 12:18:05 AM EDT 2026
