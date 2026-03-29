@@ -2,71 +2,117 @@
 
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { Connection, PublicKey, clusterApiUrl, LAMPORTS_PER_SOL, VersionedTransaction, Transaction } from '@solana/web3.js';
-import { useState } from 'react';
+import { Connection, PublicKey, clusterApiUrl, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { useState, useEffect } from 'react';
 
 // Configuration
 const LITTER_MINT = new PublicKey(process.env.NEXT_PUBLIC_LITTER_MINT || 'EzGUBzRgyta1Ekyq6eZgJ468f9dvbxd4hvV7g9CQynVZ');
-const SOL_MINT = new PublicKey('So11111111111111111111111111111111111111112');
 const LAUNCH_ID = process.env.NEXT_PUBLIC_LAUNCH_ID || 'EzGUBzRgyta1Ekyq6eZgJ468f9dvbxd4hvV7g9CQynVZ';
+
+// Common tokens for quick selection
+const COMMON_TOKENS = [
+  { symbol: 'SOL', name: 'Solana', mint: 'So11111111111111111111111111111111111111112', type: 'native' },
+  { symbol: 'USDC', name: 'USD Coin', mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', type: 'spl' },
+  { symbol: 'USDT', name: 'Tether', mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', type: 'spl' },
+  { symbol: 'BONK', name: 'Bonk', mint: 'DezXAZ8z7PnrnRJjz3wXfRtHaY76yUrZQj4oCm4M4Xh', type: 'spl' },
+  { symbol: 'WIF', name: 'dogwifhat', mint: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm', type: 'spl' },
+];
 
 export function SwapUI() {
   const { publicKey, connect, signTransaction } = useWallet();
-  const [memeToken, setMemeToken] = useState('');
+  const [selectedToken, setSelectedToken] = useState(COMMON_TOKENS[0]);
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [step, setStep] = useState<'quote' | 'swap' | 'buy' | 'done'>('quote');
+  const [step, setStep] = useState<'idle' | 'swapping' | 'buying' | 'done'>('idle');
+  const [balance, setBalance] = useState<number | null>(null);
   
   const network = process.env.NEXT_PUBLIC_NETWORK || 'devnet';
   const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || clusterApiUrl(network as any);
   const connection = new Connection(rpcUrl, 'confirmed');
+
+  // Fetch token balance when wallet connects
+  useEffect(() => {
+    if (!publicKey || !selectedToken) {
+      setBalance(null);
+      return;
+    }
+
+    const fetchBalance = async () => {
+      try {
+        if (selectedToken.type === 'native') {
+          const bal = await connection.getBalance(publicKey);
+          setBalance(bal / LAMPORTS_PER_SOL);
+        } else {
+          const tokenAccount = await connection.getTokenAccountsByOwner(publicKey, {
+            mint: new PublicKey(selectedToken.mint),
+          });
+          if (tokenAccount.value.length > 0) {
+            const info = await connection.getAccountInfo(tokenAccount.value[0].publik);
+            if (info) {
+              // Parse token account data
+              setBalance(0); // Placeholder
+            }
+          } else {
+            setBalance(0);
+          }
+        }
+      } catch (err) {
+        console.error('Balance fetch error:', err);
+        setBalance(null);
+      }
+    };
+
+    fetchBalance();
+  }, [publicKey, selectedToken, connection]);
 
   const handleSwapAndBuy = async () => {
     if (!publicKey || !signTransaction) {
       setError('Please connect your wallet first');
       return;
     }
-    if (!memeToken || !amount) {
-      setError('Please enter token mint and amount');
+    if (!amount || parseFloat(amount) <= 0) {
+      setError('Please enter a valid amount');
       return;
     }
 
     setLoading(true);
     setError('');
+    setStep('swapping');
 
     try {
-      const memeMint = new PublicKey(memeToken);
-
-      // Step 1: Get swap quote (Meme Token → SOL)
-      console.log('Getting swap quote...');
-      setStep('quote');
+      // Step 1: Swap meme token → SOL (simulated)
+      console.log(`Swapping ${amount} ${selectedToken.symbol} → SOL`);
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate swap
       
-      // For now, we'll use a simple swap simulation
-      // In production, you'd use Jupiter Aggregator or Raydium swap API
-      console.log(`Swapping ${amount} ${memeMint.toString()} to SOL`);
+      setStep('buying');
+      console.log('Buying $LITTER tokens via LaunchLab...');
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate buy
       
-      // Step 2: Buy LaunchLab token with SOL
-      console.log('Buying LITTER tokens via LaunchLab...');
-      setStep('buy');
-      
-      // LaunchLab buy transaction would go here
-      // For now, simulate the flow
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      console.log('LITTER purchase completed!');
       setStep('done');
+      console.log('✅ Success! You now have $LITTER!');
       
     } catch (err: any) {
       console.error('Error:', err);
       setError(err.message || 'Transaction failed');
+      setStep('idle');
     } finally {
       setLoading(false);
+      setTimeout(() => {
+        setStep('idle');
+        setAmount('');
+      }, 3000);
     }
   };
 
+  const handleTokenSelect = (token: typeof COMMON_TOKENS[0]) => {
+    setSelectedToken(token);
+    setAmount('');
+    setError('');
+  };
+
   return (
-    <div className="max-w-md w-full bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 shadow-2xl">
+    <div className="max-w-md w-full bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 shadow-2xl">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
@@ -76,42 +122,76 @@ export function SwapUI() {
         <WalletMultiButton />
       </div>
 
-      {/* Input Fields */}
-      <div className="space-y-4 mb-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Meme Token Mint
-          </label>
-          <input
-            type="text"
-            value={memeToken}
-            onChange={(e) => setMemeToken(e.target.value)}
-            className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            placeholder="Enter SPL token mint address"
-          />
+      {/* Token Selection */}
+      <div className="mb-6">
+        <label className="block text-sm font-medium text-gray-300 mb-3">
+          Select Token to Swap
+        </label>
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          {COMMON_TOKENS.map((token) => (
+            <button
+              key={token.symbol}
+              onClick={() => handleTokenSelect(token)}
+              className={`p-3 rounded-lg border transition-all ${
+                selectedToken.symbol === token.symbol
+                  ? 'bg-purple-500 border-purple-400 text-white'
+                  : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
+              }`}
+            >
+              <div className="text-lg font-bold">{token.symbol}</div>
+              <div className="text-xs opacity-75 truncate">{token.name}</div>
+            </button>
+          ))}
         </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Amount
-          </label>
+        
+        {/* Custom token input */}
+        <div className="mt-3">
           <input
             type="text"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            placeholder="Amount of meme tokens"
+            value={selectedToken.symbol !== 'SOL' ? selectedToken.mint : ''}
+            onChange={(e) => {
+              if (e.target.length === 44) {
+                setSelectedToken({ symbol: 'CUSTOM', name: 'Custom Token', mint: e.target, type: 'spl' });
+              }
+            }}
+            className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            placeholder="Or paste custom token mint address"
           />
         </div>
       </div>
 
-      {/* Status */}
-      {step !== 'quote' && (
+      {/* Amount Input */}
+      <div className="mb-6">
+        <div className="flex justify-between text-sm text-gray-300 mb-2">
+          <label>Amount</label>
+          {balance !== null && (
+            <span className="text-gray-400">
+              Balance: {balance.toFixed(4)} {selectedToken.symbol}
+            </span>
+          )}
+        </div>
+        <input
+          type="number"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white text-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          placeholder="0.00"
+          step="any"
+        />
+        {amount && (
+          <p className="text-xs text-gray-400 mt-2">
+            ≈ ${(parseFloat(amount) * 0.001).toFixed(2)} USD
+          </p>
+        )}
+      </div>
+
+      {/* Status Message */}
+      {step !== 'idle' && (
         <div className="mb-4 p-4 bg-white/5 rounded-lg border border-white/10">
           <p className="text-sm text-gray-300">
-            {step === 'swap' && '🔄 Swapping meme token → SOL...'}
-            {step === 'buy' && '🎯 Buying $LITTER tokens...'}
-            {step === 'done' && '✅ Success! You now have $LITTER!'}
+            {step === 'swapping' && '🔄 Swapping tokens...'}
+            {step === 'buying' && '🎯 Buying $LITTER...'}
+            {step === 'done' && '✅ Success! $LITTER tokens acquired!'}
           </p>
         </div>
       )}
@@ -126,29 +206,39 @@ export function SwapUI() {
       {/* Action Button */}
       <button
         onClick={handleSwapAndBuy}
-        disabled={loading || !publicKey}
-        className="w-full bg-purple-500 hover:bg-purple-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-4 rounded-lg transition-all transform hover:scale-105 disabled:transform-none"
+        disabled={loading || !publicKey || !amount}
+        className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white font-bold py-4 rounded-lg transition-all transform hover:scale-105 disabled:transform-none text-lg"
       >
-        {loading ? 'Processing...' : 'Swap & Buy $LITTER'}
+        {loading ? (
+          <span className="flex items-center justify-center">
+            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Processing...
+          </span>
+        ) : (
+          `Swap & Buy $LITTER`
+        )}
       </button>
 
       {/* Info */}
       <div className="mt-6 p-4 bg-white/5 rounded-lg border border-white/10">
-        <p className="text-xs text-gray-400 text-center">
-          🔁 Swap any SPL token → SOL → $LITTER
+        <p className="text-xs text-gray-400 text-center mb-2">
+          🔁 Swap any token → SOL → $LITTER
         </p>
-        <p className="text-xs text-gray-500 text-center mt-1">
+        <p className="text-xs text-gray-500 text-center">
           Powered by Raydium LaunchLab
         </p>
-        <p className="text-xs text-gray-500 text-center mt-1">
-          LITTER: {LITTER_MINT.toString().slice(0, 8)}...{LITTER_MINT.toString().slice(-6)}
+        <p className="text-xs text-gray-500 text-center mt-2 font-mono">
+          {LITTER_MINT.toString()}
         </p>
       </div>
 
       {!publicKey && (
         <div className="mt-4 p-3 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
           <p className="text-xs text-yellow-300 text-center">
-            👆 Connect wallet to start swapping
+            👆 Connect your wallet to start swapping
           </p>
         </div>
       )}
