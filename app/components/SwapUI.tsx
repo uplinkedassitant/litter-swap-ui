@@ -151,8 +151,8 @@ export function SwapUI() {
             type="text"
             value={selectedToken.symbol !== 'SOL' ? selectedToken.mint : ''}
             onChange={(e) => {
-              if (e.target.length === 44) {
-                setSelectedToken({ symbol: 'CUSTOM', name: 'Custom Token', mint: e.target, type: 'spl' });
+              if (e.target.value.length === 44) {
+                setSelectedToken({ symbol: 'CUSTOM', name: 'Custom Token', mint: e.target.value, type: 'spl' });
               }
             }}
             className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
