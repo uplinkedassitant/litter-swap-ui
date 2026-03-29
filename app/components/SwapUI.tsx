@@ -9,7 +9,7 @@ import BN from 'bn.js';
 // Configuration
 const LITTER_MINT = new PublicKey(process.env.NEXT_PUBLIC_LITTER_MINT || 'EzGUBzRgyta1Ekyq6eZgJ468f9dvbxd4hvV7g9CQynVZ');
 const LAUNCH_ID = process.env.NEXT_PUBLIC_LAUNCH_ID || 'EzGUBzRgyta1Ekyq6eZgJ468f9dvbxd4hvV7g9CQynVZ';
-const JUPITER_API = 'https://quote-api.jup.ag/v6';
+const JUPITER_API = 'https://api.jup.ag/swap/v1';
 
 // Common tokens
 const COMMON_TOKENS = [
@@ -28,10 +28,16 @@ export function SwapUI() {
   const [error, setError] = useState('');
   const [step, setStep] = useState<'idle' | 'swapping' | 'buying' | 'done'>('idle');
   const [solBalance, setSolBalance] = useState<number | null>(null);
+  const [isClient, setIsClient] = useState(false);
   
   const network = process.env.NEXT_PUBLIC_NETWORK || 'devnet';
   const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || clusterApiUrl(network as any);
   const connection = new Connection(rpcUrl, 'confirmed');
+
+  // Prevent hydration issues
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Fetch SOL balance
   useEffect(() => {
@@ -75,7 +81,7 @@ export function SwapUI() {
       
       // Use Jupiter API for swap quote
       const quoteResponse = await fetch(
-        `${JUPITER_API}/quote?inputMint=${inputMint}&outputMint=So11111111111111111111111111111111111111112&amount=${amountLamports}&slippageBps=50`
+        `https://quote-api.jup.ag/v6/quote?inputMint=${inputMint}&outputMint=So11111111111111111111111111111111111111112&amount=${amountLamports}&slippageBps=50`
       );
       const quote = await quoteResponse.json();
       
@@ -86,7 +92,7 @@ export function SwapUI() {
       console.log('Quote received:', quote);
 
       // Get swap transaction
-      const swapTxResponse = await fetch(`${JUPITER_API}/swap`, {
+      const swapTxResponse = await fetch('https://quote-api.jup.ag/v6/swap', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -117,22 +123,11 @@ export function SwapUI() {
       await connection.confirmTransaction(swapSig, 'confirmed');
       console.log('✅ Swap completed!');
 
-      // Step 2: Buy $LITTER via Raydium LaunchLab
-      console.log('🔶 Step 3: Buying $LITTER via Raydium LaunchLab');
+      // Step 2: Direct to LaunchLab
+      console.log('🔶 Step 3: LaunchLab purchase');
       setStep('buying');
 
-      // Import Raydium SDK dynamically for LaunchLab
-      console.log('🔶 Step 3: Preparing LaunchLab purchase');
-      
-      // For LaunchLab, we need to use the CPMM pool creation after migration
-      // Or use the LaunchLab specific module if available
-      // Since the token is on LaunchLab bonding curve, we'll use a simplified approach
-      
-      // After LaunchLab migration, tokens trade on Raydium CPMM pools
-      // For now, we'll complete the flow with the swap (which already happened)
-      // and note that LaunchLab auto-purchases happen on the Raydium UI
-      
-      console.log('✅ Swap completed! LaunchLab purchase can be done on Raydium UI');
+      console.log('✅ Swap completed! LaunchLab purchase available on Raydium UI');
       console.log('Launch ID:', LAUNCH_ID);
       
       setStep('done');
@@ -149,8 +144,8 @@ To complete $LITTER purchase, visit Raydium LaunchLab with Launch ID: ${LAUNCH_I
         errorMsg = 'Insufficient SOL balance for transaction';
       } else if (errorMsg.includes('slippage')) {
         errorMsg = 'Slippage too high - try a smaller amount';
-      } else if (errorMsg.includes('LaunchLab')) {
-        errorMsg = 'LaunchLab purchase failed - ensure token has migrated';
+      } else if (errorMsg.includes('fetch') || errorMsg.includes('network')) {
+        errorMsg = 'Network error - please try again';
       }
       
       setError(errorMsg);
@@ -172,13 +167,17 @@ To complete $LITTER purchase, visit Raydium LaunchLab with Launch ID: ${LAUNCH_I
 
   const displayBalance = selectedToken.type === 'native' ? solBalance : null;
 
+  if (!isClient) {
+    return <div className="max-w-md w-full bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 shadow-2xl"><div className="h-64 flex items-center justify-center text-white">Loading...</div></div>;
+  }
+
   return (
     <div className="max-w-md w-full bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 shadow-2xl">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Swap for $LITTER</h1>
-          <p className="text-sm text-gray-400">Raydium LaunchLab + Jupiter</p>
+          <p className="text-sm text-gray-400">Jupiter + Raydium LaunchLab</p>
         </div>
         <WalletMultiButton />
       </div>
@@ -227,8 +226,8 @@ To complete $LITTER purchase, visit Raydium LaunchLab with Launch ID: ${LAUNCH_I
         <div className="mb-4 p-4 bg-white/5 rounded-lg border border-white/10">
           <p className="text-sm text-gray-300">
             {step === 'swapping' && '🔄 Swapping tokens via Jupiter...'}
-            {step === 'buying' && '🎯 Buying $LITTER via LaunchLab...'}
-            {step === 'done' && '✅ Success! Check your wallet'}
+            {step === 'buying' && '🎯 LaunchLab purchase ready'}
+            {step === 'done' && '✅ Success!'}
           </p>
         </div>
       )}
