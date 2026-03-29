@@ -82,16 +82,24 @@ export function SwapUI() {
     setStep('swapping');
 
     try {
-      // Step 1: Swap meme token → SOL (simulated)
-      console.log(`Swapping ${amount} ${selectedToken.symbol} → SOL`);
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate swap
+      // ⚠️ DEMO MODE - This is a simulation
+      // In production, you would:
+      // 1. Use Jupiter API or Raydium to swap token → SOL
+      // 2. Use Raydium LaunchLab SDK to buy $LITTER with SOL
       
+      console.log('🔶 DEMO MODE - No real transaction');
+      console.log(`Would swap: ${amount} ${selectedToken.symbol} → SOL`);
+      console.log(`Would buy: $LITTER tokens via LaunchLab (ID: ${LAUNCH_ID})`);
+      
+      // Simulate API calls
+      await new Promise(resolve => setTimeout(resolve, 2000));
       setStep('buying');
-      console.log('Buying $LITTER tokens via LaunchLab...');
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate buy
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
       setStep('done');
-      console.log('✅ Success! You now have $LITTER!');
+      
+      // Show demo mode warning
+      setError('⚠️ DEMO MODE: No real transaction occurred. Integrate Raydium SDK for real swaps.');
       
     } catch (err: any) {
       console.error('Error:', err);
@@ -102,7 +110,7 @@ export function SwapUI() {
       setTimeout(() => {
         setStep('idle');
         setAmount('');
-      }, 3000);
+      }, 5000);
     }
   };
 
@@ -114,6 +122,16 @@ export function SwapUI() {
 
   return (
     <div className="max-w-md w-full bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 shadow-2xl">
+      {/* Demo Mode Banner */}
+      <div className="mb-4 p-3 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
+        <p className="text-xs text-yellow-300 text-center font-semibold">
+          ⚠️ DEMO MODE - Simulated Swaps Only
+        </p>
+        <p className="text-xs text-yellow-400 text-center mt-1">
+          Integrate Raydium SDK for real transactions
+        </p>
+      </div>
+
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
