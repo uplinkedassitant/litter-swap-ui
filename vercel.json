@@ -1,16 +1,6 @@
 {
-  "project": "litter-swap-ui",
-  "settings": {
-    "framework": "nextjs",
-    "outputDirectory": ".next",
-    "installCommand": "npm install",
-    "buildCommand": "npm run build",
-    "devCommand": "npm run dev"
-  },
-  "env": {
-    "NEXT_PUBLIC_NETWORK": "devnet",
-    "NEXT_PUBLIC_RPC_URL": "https://api.devnet.solana.com",
-    "NEXT_PUBLIC_LITTER_MINT": "EzGUBzRgyta1Ekyq6eZgJ468f9dvbxd4hvV7g9CQynVZ",
-    "NEXT_PUBLIC_LAUNCH_ID": "EzGUBzRgyta1Ekyq6eZgJ468f9dvbxd4hvV7g9CQynVZ"
-  }
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "outputDirectory": ".next"
 }
